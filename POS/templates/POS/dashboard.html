@@ -1,0 +1,1020 @@
+{% extends 'POS/base.html' %}
+
+{% block title %}Dashboard | JKPV Store{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* --- BLUE-PASTEL THEME --- */
+    :root {
+        --earth-bg: #dfeaf7;
+        --leaf-green: #7aaedc;
+        --leaf-green-hover: #5f99d4;
+        --wood-accent: #b5d4f1;
+        --wood-accent-hover: #9cc0ea;
+        --soft-text: #2f435d;
+        --card-bg: #ffffff;
+        --border-soft: #dbeaf9;
+    }
+
+    body, html {
+        background-color: transparent !important;
+        color: var(--soft-text);
+    }
+
+    /* Category Buttons */
+    .category-scroll-wrapper { position: relative; }
+    .category-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 0.5rem;
+        padding-bottom: 0.5rem;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        cursor: default; /* remove scroll/grab cursor */
+    }
+    .category-scroll::-webkit-scrollbar { height: 6px; }
+    .category-scroll::-webkit-scrollbar-thumb { background: rgba(95,153,212,0.25); border-radius: 10px; }
+    .category-scroll .category-btn { white-space: nowrap; }
+    .category-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--leaf-green);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        cursor: pointer;
+        opacity: 0.95;
+    }
+    .category-arrow.left { left: -10px; }
+    .category-arrow.right { right: -10px; background: var(--wood-accent-hover); color: #0b3b5e; }
+    .category-arrow:disabled { opacity: 0.5; cursor: not-allowed; }
+    @media (max-width: 1400px) { .category-arrow { display:none; } }
+    
+    .btn-primary {
+        background-color: var(--leaf-green) !important;
+        border-color: var(--leaf-green) !important;
+        color: #fff !important;
+    }
+    .btn-primary:hover, .btn-primary.active {
+        background-color: var(--leaf-green-hover) !important;
+        border-color: var(--leaf-green-hover) !important;
+        box-shadow: 0 4px 10px rgba(95, 153, 212, 0.32);
+    }
+    .btn-outline-primary {
+        color: var(--leaf-green) !important;
+        border-color: var(--leaf-green) !important;
+    }
+    .btn-outline-primary:hover {
+        background-color: var(--leaf-green) !important;
+        color: #fff !important;
+    }
+
+    /* Product Cards */
+    .cursor-pointer { cursor: pointer; }
+    .product-card {
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--border-soft);
+        border-radius: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    }
+    .product-card:hover { 
+        transform: translateY(-5px); 
+        border-color: var(--leaf-green); 
+        box-shadow: 0 12px 24px rgba(95, 153, 212, 0.18);
+    }
+    
+    /* Utang & Action Buttons */
+    .btn-warning {
+        background-color: var(--wood-accent) !important;
+        border-color: var(--wood-accent) !important;
+        color: #fff !important;
+    }
+    .btn-warning:hover {
+        background-color: var(--wood-accent-hover) !important;
+        border-color: var(--wood-accent-hover) !important;
+    }
+    .btn-info {
+        background-color: #8bb9e7 !important;
+        border-color: #8bb9e7 !important;
+    }
+    .btn-info:hover {
+        background-color: #72a8df !important;
+    }
+
+    /* Text & Icon Overrides */
+    .text-primary { color: var(--leaf-green) !important; }
+    .text-info { color: #9dc3ef !important; }
+    .bg-light { background-color: #f3f8ff !important; }
+    
+    /* Right Panel (Cart) */
+    .cart-panel-card {
+        background-color: var(--card-bg);
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important;
+        border-radius: 1rem;
+    }
+    .cart-header-natural {
+        background-color: var(--leaf-green) !important;
+        color: white;
+    }
+    .cart-container { max-height: 350px; overflow-y: auto; }
+    
+    /* Calculator Styles */
+    .calc-btn {
+        font-size: 1.2rem;
+        font-weight: 600;
+        height: 50px;
+        border-radius: 0.5rem;
+        background-color: #f4f9ff;
+        border: 1px solid var(--border-soft);
+        color: var(--soft-text);
+        transition: background-color 0.2s ease;
+    }
+    .calc-btn:hover {
+        background-color: #e5f0ff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4 mt-1">
+    <!-- LEFT SIDE: Products & Categories -->
+    <div class="col-lg-7 col-xl-8 d-flex flex-column h-100">
+        
+        <!-- Header & Utang Details Button -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold text-dark mb-0">Menu</h4>
+            <button class="btn btn-info text-white shadow-sm fw-bold rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#utangHistoryModal" onclick="fetchUtangHistory()">
+                <i class="fas fa-list-alt me-2"></i>Utang Details
+            </button>
+        </div>
+
+        <!-- Quick Stats Row -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card p-3 shadow-sm rounded-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small text-muted">Today&apos;s Sales</div>
+                            <div class="fw-bold fs-4 text-success">₱{{ today_total|floatformat:2 }}</div>
+                            <div class="small text-muted">{{ today_count }} transactions</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-coins fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card p-3 shadow-sm rounded-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small text-muted">Low Stock Items</div>
+                            <div class="fw-bold fs-4 text-danger">{{ low_stock_count }}</div>
+                            <div class="small text-muted">Check inventory</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card p-3 shadow-sm rounded-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small text-muted">Top Seller</div>
+                            {% if top_sellers %}
+                                <div class="fw-bold fs-5">{{ top_sellers.0.product_name }}</div>
+                                <div class="small text-muted">{{ top_sellers.0.total_qty }} sold</div>
+                            {% else %}
+                                <div class="fw-bold fs-5 text-muted">—</div>
+                                <div class="small text-muted">No data</div>
+                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-star fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card p-3 shadow-sm rounded-4">
+                    <div class="d-flex flex-column align-items-start">
+                        <div class="small text-muted">Quick Actions</div>
+                        <div class="mt-2 d-flex gap-2 w-100">
+                            <a href="#" class="btn btn-primary btn-sm w-50" onclick="document.location='{% url 'add_product' %}'">Add Product</a>
+                            <button class="btn btn-outline-primary btn-sm w-50" onclick="document.getElementById('categoryScroll').scrollIntoView({behavior:'smooth'})">Go to Menu</button>
+                        </div>
+                        <div class="mt-2 d-flex gap-2 w-100">
+                            <button class="btn btn-success btn-sm w-50" onclick="clearCart()">Clear Cart</button>
+                            <button class="btn btn-info btn-sm w-50" onclick="document.location='{% url 'inventory' %}'">Inventory</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOW STOCK ALERT BANNER -->
+        {% if low_stock_count > 0 %}
+        <div class="alert alert-warning alert-dismissible fade show shadow-sm rounded-4 mb-3" role="alert" style="background-color: #edf5ff; color: #456a9e; border: 1px solid #d9e9f9;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle fa-2x me-3 text-warning"></i>
+                <div>
+                    <h5 class="alert-heading fw-bold mb-1">Low Stock Warning!</h5>
+                    <p class="mb-0">There are <strong>{{ low_stock_count }}</strong> product(s) with 5 or fewer items remaining. Please check inventory.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        <!-- Category Filters -->
+        <div class="position-relative mb-3 category-scroll-wrapper">
+            <button class="category-arrow left" id="catScrollLeft" aria-label="Scroll left"><i class="fas fa-chevron-left"></i></button>
+            <div class="category-scroll mb-0" id="categoryScroll" tabindex="0">
+                <button class="btn btn-primary rounded-pill px-4 category-btn active" onclick="filterCategory('all')">All Items</button>
+                {% for cat in categories %}
+                    <button class="btn btn-outline-primary rounded-pill px-4 category-btn" onclick="filterCategory('{{ cat.name }}')">{{ cat.name }}</button>
+                {% endfor %}
+            </div>
+            <button class="category-arrow right" id="catScrollRight" aria-label="Scroll right"><i class="fas fa-chevron-right"></i></button>
+        </div>
+
+
+        <!-- Product Grid -->
+        <div class="row g-3 overflow-auto pe-2 flex-grow-1" id="product-list" style="max-height: calc(100vh - 250px);">
+            {% for product in products %}
+            <div class="col-6 col-md-4 col-xl-3 product-item fade-in" data-category="{{ product.category.name|default:'Uncategorized' }}">
+                <div class="card h-100 product-card cursor-pointer" 
+                     onclick="addToCart('{{ product.name|escapejs }}', {{ product.price }}, {{ product.stock_quantity }}, '{{ product.category.name|default:"Uncategorized"|escapejs }}')">
+                    
+                    <div class="card-body text-center p-3 d-flex flex-column justify-content-center">
+                        <div class="mb-2 text-primary">
+                            <i class="fas fa-box fa-2x"></i>
+                        </div>
+                        <h6 class="card-title fw-bold mb-1 text-dark text-truncate" title="{{ product.name }}">{{ product.name }}</h6>
+                        <h5 class="text-success fw-bold mb-2">₱{{ product.price|floatformat:2 }}</h5>
+                        
+                        <div class="mt-auto">
+                            {% if product.stock_quantity <= 5 %}
+                                <span class="badge bg-danger rounded-pill w-100 py-2"><i class="fas fa-exclamation-triangle me-1"></i><span id="stock-{{ product.name|slugify }}">{{ product.stock_quantity }}</span> Left</span>
+                            {% else %}
+                                <span class="badge bg-light text-secondary border rounded-pill w-100 py-2"><i class="fas fa-cubes me-1"></i><span id="stock-{{ product.name|slugify }}">{{ product.stock_quantity }}</span> in stock</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No products found</h4>
+                <p>Go to Inventory to add products.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE: Cart & Manual Calculator -->
+    <div class="col-lg-5 col-xl-4">
+        <div class="card cart-panel-card h-100 d-flex flex-column">
+            
+            <!-- Cart Header -->
+            <div class="card-header cart-header-natural rounded-top-4 py-3 d-flex justify-content-between align-items-center border-0">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-shopping-basket me-2 text-info"></i>Current Order</h5>
+                <button class="btn btn-sm btn-outline-light border-0" onclick="clearCart()"><i class="fas fa-trash"></i></button>
+            </div>
+            
+            <!-- Cart Items List -->
+            <div class="card-body p-0 cart-container bg-white" id="cart-container">
+                <div id="empty-cart-msg" class="text-center text-muted py-5">
+                    <i class="fas fa-shopping-cart fa-3x mb-3 opacity-50"></i>
+                    <p class="mb-0">Cart is empty</p>
+                </div>
+                <ul class="list-group list-group-flush" id="cart-items">
+                    <!-- Items will appear here via JS -->
+                </ul>
+            </div>
+
+            <!-- Total & Calculator Section -->
+            <div class="card-footer bg-light p-3 rounded-bottom-4 mt-auto border-top-0">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold text-secondary text-uppercase">Total Due</span>
+                    <h2 class="fw-bold text-danger m-0" id="cartTotal">₱0.00</h2>
+                </div>
+
+                <!-- Payment Method -->
+                <div class="mb-3">
+                    <select class="form-select border-secondary fw-semibold" id="paymentMethod">
+                        <option value="Cash">💵 Cash</option>
+                        <option value="Gcash">📱 GCash</option>
+                    </select>
+
+                    <!-- Senior/PWD Discount Toggle -->
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="seniorDiscountToggle">
+                        <label class="form-check-label small text-secondary" for="seniorDiscountToggle">Senior / PWD (5% on BNPC)</label>
+                    </div>
+                    <div class="mt-2">
+                        <input type="text" id="seniorIdInput" class="form-control form-control-sm" placeholder="Enter Senior/PWD ID (optional)" disabled>
+                        <small class="text-muted">Toggle when ID is presented. Discount applies only to eligible BNPC items.</small>
+                    </div>
+                </div>
+
+                <!-- Cash Tendered Display -->
+                <div class="input-group mb-2 shadow-sm">
+                    <span class="input-group-text bg-white border-primary text-primary fw-bold">Tendered ₱</span>
+                    <input type="text" class="form-control form-control-lg border-primary text-end fw-bold" id="cashTendered" value="0" readonly>
+                    <button class="btn btn-outline-secondary" onclick="clearCalculator()"><i class="fas fa-backspace"></i></button>
+                </div>
+
+                <!-- Change Display -->
+                <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                    <span class="fw-semibold text-secondary">Change:</span>
+                    <h5 class="fw-bold text-success m-0" id="changeAmount">₱0.00</h5>
+                </div>
+
+                <!-- Manual Calculator Numpad -->
+                <div class="row g-2 mb-3">
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('7')">7</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('8')">8</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('9')">9</button></div>
+                    
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('4')">4</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('5')">5</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('6')">6</button></div>
+                    
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('1')">1</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('2')">2</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('3')">3</button></div>
+                    
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('0')">0</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('00')">00</button></div>
+                    <div class="col-4"><button class="btn calc-btn w-100 shadow-sm" onclick="calcInput('.')">.</button></div>
+                </div>
+
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn btn-primary btn-lg w-100 fw-bold shadow" onclick="processCheckout()">
+                        <i class="fas fa-check-circle me-2"></i>PROCESS SALE
+                    </button>
+                    <!-- DEDICATED UTANG BUTTON -->
+                    <button type="button" class="btn btn-warning btn-lg w-100 fw-bold shadow text-white" data-bs-toggle="modal" data-bs-target="#utangModal">
+                        <i class="fas fa-book me-2"></i>RECORD AS UTANG
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- UTANG CHECKOUT MODAL -->
+<div class="modal fade" id="utangModal" tabindex="-1" aria-labelledby="utangModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-warning text-white rounded-top-4 border-0 py-3">
+                <h5 class="modal-title fw-bold" id="utangModalLabel">
+                    <i class="fas fa-book-open me-2"></i>Record Utang Transaction
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label for="utangCustomerName" class="form-label fw-bold text-secondary">Customer Name (Sino ang uutang?)</label>
+                    <input type="text" class="form-control form-control-lg bg-light" id="utangCustomerName" placeholder="e.g. Juan Dela Cruz" required>
+                </div>
+                <div class="alert alert-info mb-0" role="alert" style="background-color: #eaf4ff; color: var(--leaf-green); border: none;">
+                    <i class="fas fa-info-circle me-2"></i>This transaction will be marked as unpaid in the Sales Report.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pb-4 pe-4">
+                <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning fw-bold px-4 text-white" onclick="processUtang()">Confirm Utang</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- UTANG DETAILS HISTORY MODAL -->
+<div class="modal fade" id="utangHistoryModal" tabindex="-1" aria-labelledby="utangHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header text-white rounded-top-4 border-0 py-3" style="background-color: #7aaedc;">
+                <h5 class="modal-title fw-bold" id="utangHistoryModalLabel">
+                    <i class="fas fa-list-alt me-2"></i>Daily Utang Records
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light p-4" id="utangHistoryBody">
+                <div class="text-center text-muted py-5" id="utangLoader">
+                    <div class="spinner-border text-info mb-3" role="status"></div>
+                    <p>Loading Utang records...</p>
+                </div>
+                <!-- Dynamic Content Will Load Here -->
+                <div id="utangAccordion" class="accordion shadow-sm d-none"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GCASH QR CODE MODAL -->
+<div class="modal fade" id="gcashQrModal" tabindex="-1" aria-labelledby="gcashQrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-primary text-white rounded-top-4 border-0 py-3">
+                <h5 class="modal-title fw-bold" id="gcashQrModalLabel">
+                    <i class="fas fa-qrcode me-2"></i>GCash Payment QR Code
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <p class="text-muted mb-2">Scan with GCash app to pay</p>
+                <h2 class="fw-bold text-success mb-3" id="qrTotalAmount">₱0.00</h2>
+                
+                <!-- QR Code Container -->
+                <div id="qrcode" class="d-flex justify-content-center p-3 bg-white border rounded-3 shadow-sm mb-3"></div>
+                
+                <small class="text-muted d-block mb-3">Ask customer for the GCash Reference Number once paid.</small>
+                
+                <div class="mb-3 text-start">
+                    <label for="gcashRefNo" class="form-label fw-bold text-secondary">GCash Reference No. (Optional)</label>
+                    <input type="text" class="form-control" id="gcashRefNo" placeholder="e.g. 1002345678">
+                </div>
+            </div>
+            <div class="modal-footer border-0 pb-4 pe-4">
+                <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-bold px-4" onclick="confirmGcashSale()">
+                    <i class="fas fa-check-circle me-1"></i> Confirm Received
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    let cart = {};
+    let totalDue = 0;
+    let cashTendered = 0;
+    // Senior/PWD discount settings
+    let seniorDiscountEnabled = false;
+    const SENIOR_DISCOUNT_RATE = 0.05; // 5%
+    // Keywords to detect BNPC items in category or product name (lowercase)
+    const BNPC_KEYWORDS = ['rice','milk','oil','can','canned','cooking oil','rice flour'];
+
+    function isItemEligibleForBnpc(itemName, itemCategory){
+        const cat = (itemCategory || '').toLowerCase();
+        const name = (itemName || '').toLowerCase();
+        // Check keywords in category first (substring match) then product name
+        for (const kw of BNPC_KEYWORDS) {
+            if (cat.includes(kw)) return true;
+            if (name.includes(kw)) return true;
+        }
+        return false;
+    }
+
+    // Initialize Senior/PWD toggle behavior and wire up real-time updates
+    (function(){
+        const seniorToggle = document.getElementById('seniorDiscountToggle');
+        const seniorIdInput = document.getElementById('seniorIdInput');
+        if (seniorToggle) {
+            // set initial state based on toggle (in case persisted)
+            seniorDiscountEnabled = seniorToggle.checked;
+            if (seniorIdInput) seniorIdInput.disabled = !seniorToggle.checked;
+
+            seniorToggle.addEventListener('change', function(){
+                seniorDiscountEnabled = this.checked;
+                if (seniorIdInput) {
+                    seniorIdInput.disabled = !this.checked;
+                    if (!this.checked) seniorIdInput.value = '';
+                }
+                // Recompute cart totals and UI immediately when toggle changes
+                if (typeof updateCartDisplay === 'function') updateCartDisplay();
+            });
+        }
+    })();
+
+    // --- CATEGORY FILTER LOGIC ---
+    function filterCategory(categoryName) {
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+            if (btn.innerText.trim() === categoryName || (categoryName === 'all' && btn.innerText.trim() === 'All Items')) {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-primary', 'active');
+            }
+        });
+
+        document.querySelectorAll('.product-item').forEach(item => {
+            if (categoryName === 'all' || item.getAttribute('data-category') === categoryName) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    // --- CART LOGIC ---
+    function addToCart(name, price, stock, category) {
+        if (stock <= 0) {
+            Swal.fire('Out of Stock', name + ' is currently out of stock!', 'error');
+            return;
+        }
+
+        if (cart[name]) {
+            if (cart[name].qty >= stock) {
+                Swal.fire('Limit Reached', 'Not enough stock available.', 'warning');
+                return;
+            }
+            cart[name].qty += 1;
+        } else {
+        cart[name] = { price: price, qty: 1, stock: stock, category: (category || '').toLowerCase() };
+        }
+        updateCartDisplay();
+    }
+
+    function updateItemQuantity(name, newValue, maxStock) {
+        let newQty = parseInt(newValue);
+        
+        if (isNaN(newQty) || newQty <= 0) {
+            removeItem(name);
+            return;
+        }
+        
+        if (newQty > maxStock) {
+            Swal.fire('Limit Reached', `Only ${maxStock} available in stock.`, 'warning');
+            newQty = maxStock;
+        }
+        
+        if (cart[name]) {
+            cart[name].qty = newQty;
+            updateCartDisplay();
+        }
+    }
+
+    function removeItem(name) {
+        if (cart[name]) {
+            delete cart[name];
+            updateCartDisplay();
+        }
+    }
+
+    function updateCartDisplay() {
+        const cartList = document.getElementById('cart-items');
+        const emptyMsg = document.getElementById('empty-cart-msg');
+        cartList.innerHTML = '';
+        totalDue = 0;
+        // Keep seniorDiscountEnabled in sync with the toggle state (real-time)
+        const toggleElem = document.getElementById('seniorDiscountToggle');
+        if (toggleElem) {
+            seniorDiscountEnabled = !!toggleElem.checked;
+        }
+
+        const itemNames = Object.keys(cart);
+        if (itemNames.length === 0) {
+            emptyMsg.style.display = 'block';
+        } else {
+            emptyMsg.style.display = 'none';
+            itemNames.forEach(name => {
+                const item = cart[name];
+            // If the toggle is enabled, apply discount to all items; otherwise use BNPC detection
+            const eligible = seniorDiscountEnabled ? true : isItemEligibleForBnpc(name, item.category);
+            let displayPrice = item.price;
+            let lineDiscount = 0;
+
+            if (seniorDiscountEnabled && eligible) {
+                lineDiscount = parseFloat((item.price * SENIOR_DISCOUNT_RATE).toFixed(2));
+                displayPrice = parseFloat((item.price - lineDiscount).toFixed(2));
+            }
+
+            const subtotal = displayPrice * item.qty;
+            totalDue += subtotal;
+
+            cartList.innerHTML += `
+                <li class="list-group-item p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="my-0 fw-bold text-truncate pe-2">${name}</h6>
+                        <button class="btn btn-sm text-danger p-0 border-0 bg-transparent" onclick="removeItem('${name}')" title="Remove item">
+                            <i class="fas fa-trash-alt fs-5"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            ${ eligible && seniorDiscountEnabled ? `<span class="text-muted small text-decoration-line-through">₱${item.price.toFixed(2)}</span><span class="badge bg-info text-white ms-1">-5%</span><span class="text-success small ms-2">₱${displayPrice.toFixed(2)}</span>` : `<span class="text-muted small">₱${item.price.toFixed(2)}</span>` }
+                            <i class="fas fa-times text-muted small ms-2"></i>
+                            <input type="number" 
+                                   class="form-control form-control-sm text-center border-primary fw-bold ms-2" 
+                                   style="width: 75px;" 
+                                   value="${item.qty}" 
+                                   min="1" 
+                                   max="${item.stock}"
+                                   onchange="updateItemQuantity('${name}', this.value, ${item.stock})">
+                        </div>
+                        <span class="fw-bold text-dark fs-5">₱${subtotal.toFixed(2)}</span>
+                    </div>
+                </li>
+            `;
+            });
+        }
+        document.getElementById('cartTotal').innerText = '₱' + totalDue.toFixed(2);
+        calculateChange();
+    }
+
+    function clearCart() {
+        cart = {};
+        updateCartDisplay();
+        clearCalculator();
+    }
+
+    // --- CALCULATOR LOGIC ---
+    function calcInput(val) {
+        const inputField = document.getElementById('cashTendered');
+        if (inputField.value === '0' && val !== '.') {
+            inputField.value = val;
+        } else {
+            if (val === '.' && inputField.value.includes('.')) return;
+            inputField.value += val;
+        }
+        cashTendered = parseFloat(inputField.value) || 0;
+        calculateChange();
+    }
+
+    function clearCalculator() {
+        document.getElementById('cashTendered').value = '0';
+        cashTendered = 0;
+        calculateChange();
+    }
+
+    function calculateChange() {
+        const changeDisplay = document.getElementById('changeAmount');
+        const change = cashTendered - totalDue;
+        
+        if (totalDue > 0 && change >= 0) {
+            changeDisplay.innerText = '₱' + change.toFixed(2);
+            changeDisplay.classList.replace('text-danger', 'text-success');
+        } else {
+            changeDisplay.innerText = '₱0.00';
+            changeDisplay.classList.replace('text-success', 'text-danger');
+        }
+    }
+
+    // --- CHECKOUT ROUTER ---
+    function processCheckout() {
+        const itemNames = Object.keys(cart);
+        if (itemNames.length === 0) {
+            Swal.fire('Empty Cart', 'Add items before checking out.', 'info');
+            return;
+        }
+
+        const paymentMethod = document.getElementById('paymentMethod').value;
+        
+        if (paymentMethod === 'Cash') {
+            if (cashTendered < totalDue) {
+                Swal.fire('Insufficient Cash', 'Tendered amount is less than total due.', 'warning');
+                return;
+            }
+
+            const transactionData = {
+                payment_method: 'Cash',
+                reference_number: '',
+                customer_name: '', 
+                total: totalDue,
+                discount_applied: seniorDiscountEnabled,
+                discount_type: seniorDiscountEnabled ? 'Senior/PWD' : '',
+                discount_rate: seniorDiscountEnabled ? SENIOR_DISCOUNT_RATE : 0,
+                discount_id: seniorDiscountEnabled ? document.getElementById('seniorIdInput').value.trim() : '',
+                items: itemNames.map(name => ({
+                    name: name,
+                    price: cart[name].price,
+                    quantity: cart[name].qty,
+                    category: cart[name].category || ''
+                }))
+            };
+
+            sendToBackend(transactionData, 'Cash', cashTendered);
+        
+        } else if (paymentMethod === 'Gcash') {
+            document.getElementById('qrTotalAmount').innerText = '₱' + totalDue.toFixed(2);
+            document.getElementById('gcashRefNo').value = ''; 
+            
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = ''; 
+
+            const gcashAccountMobile = "09756640917"; 
+            const qrPayload = `GCASH:${gcashAccountMobile}:${totalDue.toFixed(2)}`;
+
+            new QRCode(qrContainer, {
+                text: qrPayload,
+                width: 200,
+                height: 200,
+                colorDark: "#5f99d4",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            const qrModal = new bootstrap.Modal(document.getElementById('gcashQrModal'));
+            qrModal.show();
+        }
+    }
+
+    // --- CONFIRM GCASH SALE ---
+    function confirmGcashSale() {
+        // Ensure the ID input is considered when toggle is used
+        const toggle = document.getElementById('seniorDiscountToggle');
+        seniorDiscountEnabled = toggle ? toggle.checked : false;
+
+        const itemNames = Object.keys(cart);
+        const refNo = document.getElementById('gcashRefNo').value.trim();
+
+        // FORCED 'Gcash' payment_method string explicitly
+        const transactionData = {
+            payment_method: 'Gcash',
+            reference_number: refNo,
+            customer_name: refNo ? `GCash Ref: ${refNo}` : 'GCash Customer', 
+            total: totalDue,
+            discount_applied: seniorDiscountEnabled,
+            discount_type: seniorDiscountEnabled ? 'Senior/PWD' : '',
+            discount_rate: seniorDiscountEnabled ? SENIOR_DISCOUNT_RATE : 0,
+            discount_id: seniorDiscountEnabled ? document.getElementById('seniorIdInput').value.trim() : '',
+            items: itemNames.map(name => ({
+                name: name,
+                price: cart[name].price,
+                quantity: cart[name].qty,
+                category: cart[name].category || ''
+            }))
+        };
+
+        // Disable the confirm button while processing and show spinner
+        const confirmBtn = document.querySelector('#gcashQrModal .modal-footer .btn.btn-primary');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.dataset.orig = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...`;
+        }
+
+        const modalElement = document.getElementById('gcashQrModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) modalInstance.hide();
+
+        // Send to backend and restore button state afterwards
+        sendToBackend(transactionData, 'Gcash', totalDue)
+            .catch(() => {})
+            .finally(() => {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = confirmBtn.dataset.orig || `<i class="fas fa-check-circle me-1"></i> Confirm Received`;
+                }
+            });
+    }
+
+    // --- UTANG CHECKOUT LOGIC ---
+    function processUtang() {
+        const customerName = document.getElementById('utangCustomerName').value.trim();
+        const itemNames = Object.keys(cart);
+
+        if (!customerName) {
+            Swal.fire('Error', 'Please enter the customer name!', 'warning');
+            return;
+        }
+
+        if (itemNames.length === 0) {
+            Swal.fire('Empty Cart', 'Add items before recording Utang.', 'info');
+            return;
+        }
+
+        const transactionData = {
+            payment_method: 'Utang',
+            reference_number: '',
+            customer_name: customerName,
+            total: totalDue,
+            discount_applied: seniorDiscountEnabled,
+            discount_type: seniorDiscountEnabled ? 'Senior/PWD' : '',
+            discount_rate: seniorDiscountEnabled ? SENIOR_DISCOUNT_RATE : 0,
+            discount_id: seniorDiscountEnabled ? document.getElementById('seniorIdInput').value.trim() : '',
+            items: itemNames.map(name => ({
+                name: name,
+                price: cart[name].price,
+                quantity: cart[name].qty,
+                category: cart[name].category || ''
+            }))
+        };
+
+        const modalElement = document.getElementById('utangModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) modalInstance.hide();
+
+        sendToBackend(transactionData, 'Utang', 0, customerName);
+    }
+
+    // --- BACKEND API SUBMISSION ---
+    function sendToBackend(transactionData, method, tenderedAmount = 0, name = '') {
+        return fetch('{% url "record_sale" %}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(transactionData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Server error response:', response.status, text);
+                    throw new Error(`Server error: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                let successMessage = `<b>Total:</b> ₱${totalDue.toFixed(2)}<br><b>Method:</b> ${method}`;
+                
+                if (method === 'Cash') {
+                    successMessage += `<br><b>Change:</b> ₱${(tenderedAmount - totalDue).toFixed(2)}`;
+                } else if (method === 'Gcash' && transactionData.reference_number) {
+                    successMessage += `<br><b>Ref No:</b> ${transactionData.reference_number}`;
+                } else if (method === 'Utang') {
+                    successMessage += `<br><b>Customer:</b> ${name}`;
+                }
+
+                return Swal.fire({
+                    title: 'Transaction Complete!',
+                    html: successMessage,
+                    icon: 'success',
+                    confirmButtonText: 'Next Customer',
+                    confirmButtonColor: '#5f99d4'
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                return Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('System Error', 'Could not process transaction.', 'error');
+            throw error;
+        });
+    }
+
+    // --- FETCH UNPAID UTANG HISTORY ---
+    function fetchUtangHistory() {
+        const loader = document.getElementById('utangLoader');
+        const accordion = document.getElementById('utangAccordion');
+        
+        loader.classList.remove('d-none');
+        accordion.classList.add('d-none');
+        accordion.innerHTML = '';
+
+        fetch('{% url "get_utang_records" %}')
+            .then(response => response.json())
+            .then(data => {
+                loader.classList.add('d-none');
+                accordion.classList.remove('d-none');
+
+                if (Object.keys(data).length === 0) {
+                    accordion.innerHTML = '<div class="alert alert-success text-center fw-bold"><i class="fas fa-check-circle me-2"></i>No unpaid Utang records!</div>';
+                    return;
+                }
+
+                let index = 0;
+                for (const [date, records] of Object.entries(data)) {
+                    const dayTotal = records.reduce((sum, record) => sum + parseFloat(record.amount), 0);
+                    
+                    let recordsHtml = records.map(r => `
+                        <li class="list-group-item d-flex justify-content-between align-items-center p-3 border-bottom">
+                            <div>
+                                <span class="fw-bold text-dark fs-6">${r.customer_name}</span><br>
+                                <small class="text-muted">${r.items_summary}</small><br>
+                                <span class="text-danger fw-bold fs-6">₱${parseFloat(r.amount).toFixed(2)}</span>
+                            </div>
+                            <button class="btn btn-sm btn-success fw-bold px-3 py-2 shadow-sm rounded-pill" 
+                                    style="background-color: #5f99d4; border: none;"
+                                    onclick="payUtang(${r.id}, '${r.customer_name.replace(/'/g, "\\'")}', ${r.amount})">
+                                <i class="fas fa-check me-1"></i> Paid
+                            </button>
+                        </li>
+                    `).join('');
+
+                    accordion.innerHTML += `
+                        <div class="accordion-item border-0 mb-2 shadow-sm rounded">
+                            <h2 class="accordion-header" id="heading${index}">
+                                <button class="accordion-button ${index !== 0 ? 'collapsed' : ''} bg-white fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+                                    <i class="far fa-calendar-alt me-2 text-info"></i> ${date} 
+                                    <span class="badge bg-danger ms-auto rounded-pill me-2">Unpaid: ₱${dayTotal.toFixed(2)}</span>
+                                </button>
+                            </h2>
+                            <div id="collapse${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" data-bs-parent="#utangAccordion">
+                                <div class="accordion-body p-0">
+                                    <ul class="list-group list-group-flush">
+                                        ${recordsHtml}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    index++;
+                }
+            })
+            .catch(error => {
+                loader.classList.add('d-none');
+                accordion.classList.remove('d-none');
+                accordion.innerHTML = '<div class="alert alert-danger text-center"><i class="fas fa-exclamation-triangle me-2"></i>Failed to load records.</div>';
+                console.error("Error fetching Utang history:", error);
+            });
+    }
+
+    // --- MARK UTANG AS PAID ---
+    function payUtang(transactionId, customerName, amount) {
+        Swal.fire({
+            title: 'Confirm Payment',
+            html: `Mark debt of <b>${customerName}</b> (₱${amount.toFixed(2)}) as <b>PAID</b>?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#5f99d4',
+            cancelButtonColor: '#8ca2bc',
+            confirmButtonText: 'Yes, Paid!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/mark_utang_paid/${transactionId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            title: 'Cleared!',
+                            text: 'Debt has been marked as paid.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                        fetchUtangHistory(); 
+                    } else {
+                        Swal.fire('Error', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('System Error', 'Could not update record.', 'error');
+                });
+            }
+        });
+    }
+
+    // --- CATEGORY ARROW SCROLLERS ---
+    (function(){
+        const leftBtn = document.getElementById('catScrollLeft');
+        const rightBtn = document.getElementById('catScrollRight');
+        const scroller = document.getElementById('categoryScroll');
+        if (!scroller || !leftBtn || !rightBtn) return;
+
+        function getScrollAmount(){
+            return Math.max(200, Math.floor(scroller.clientWidth * 0.6));
+        }
+
+        function updateButtons(){
+            leftBtn.disabled = scroller.scrollLeft <= 0;
+            rightBtn.disabled = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1;
+        }
+
+        leftBtn.addEventListener('click', function(){
+            scroller.scrollBy({ left: -getScrollAmount(), behavior: 'smooth' });
+            setTimeout(updateButtons, 300);
+        });
+
+        rightBtn.addEventListener('click', function(){
+            scroller.scrollBy({ left: getScrollAmount(), behavior: 'smooth' });
+            setTimeout(updateButtons, 300);
+        });
+
+        scroller.addEventListener('scroll', updateButtons);
+        window.addEventListener('resize', updateButtons);
+        updateButtons();
+    })();
+
+</script>
+{% endblock %}

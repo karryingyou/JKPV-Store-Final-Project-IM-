@@ -1,0 +1,152 @@
+{% extends 'POS/base.html' %}
+
+{% block title %}Sales Report | JKPV Store{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+    <h2 class="fw-bold text-success"><i class="fas fa-chart-line me-2"></i>Sales Report</h2>
+</div>
+
+<!-- Daily Sales Summary Table -->
+<div class="card shadow-sm border-0 rounded-4 mb-4">
+    <div class="card-header bg-success text-white fw-bold rounded-top-4 py-3">
+        <i class="fas fa-calendar-day me-2"></i>Daily Sales Summary
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Date</th>
+                        <th class="text-end pe-4">Total Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in daily_sales %}
+                    <tr class="align-middle">
+                        <td class="ps-4 fw-semibold text-dark">{{ day.date|date:"F d, Y" }}</td>
+                        <td class="text-end pe-4 text-success fw-bold fs-5">₱{{ day.total_sales }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center py-4 text-muted">No daily sales calculated yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex align-items-center justify-content-between mb-2">
+    <h4 class="fw-bold text-secondary mb-0"><i class="fas fa-list me-2"></i>Detailed Transactions</h4>
+    <div class="d-flex align-items-center gap-3">
+        <div>
+            <label class="small text-muted mb-1 d-block">Filter by Date</label>
+            <select id="salesDateSelect" class="form-select form-select-sm">
+                <option value="all">All Dates</option>
+                {% for day in daily_sales %}
+                    <option value="{{ day.date|date:'Y-m-d' }}">{{ day.date|date:'F d, Y' }} — ₱{{ day.total_sales }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="text-end">
+            <div class="small text-muted">Selected Date Total</div>
+            <div id="selectedTotal" class="fw-bold fs-5 text-success">₱0.00</div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Transaction Table -->
+<div class="card shadow-sm border-0 rounded-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0" id="transactionsTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="ps-4">Transaction ID</th>
+                        <th>Date & Time</th>
+                        <th>Items Sold</th>
+                        <th>Payment Method</th>
+                        <th class="text-end pe-4">Total Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    {% comment %} attach a data-date attribute in YYYY-MM-DD for client filtering {% endcomment %}
+                    <tr class="align-middle" data-date="{{ transaction.timestamp|date:'Y-m-d' }}">
+                        <td class="ps-4 fw-semibold text-muted">#{{ transaction.id }}</td>
+                        <td>{{ transaction.timestamp|date:"M d, Y g:i A" }}</td>
+                        <td>
+                            <ul class="list-unstyled mb-0" style="font-size: 0.9em;">
+                                {% for item in transaction.items.all %}
+                                    <li><span class="fw-bold">{{ item.quantity }}x</span> {{ item.product_name }}</li>
+                                {% empty %}
+                                    <li class="text-muted">No item details</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td>
+                            {% if transaction.payment_method|lower == 'gcash' %}
+                                <span class="badge bg-primary px-2 py-1"><i class="fas fa-mobile-alt me-1"></i>GCash</span>
+                            {% elif transaction.payment_method|lower == 'utang' %}
+                                <span class="badge bg-warning text-dark px-2 py-1"><i class="fas fa-book me-1"></i>Utang</span>
+                            {% else %}
+                                <span class="badge bg-success px-2 py-1"><i class="fas fa-money-bill-wave me-1"></i>Cash</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4 text-success fw-bold fs-5">₱{{ transaction.total_amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fas fa-receipt fa-3x mb-3 text-light"></i><br>
+                            No sales transactions recorded yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    function parseAmount(str){
+        if (!str) return 0;
+        // remove any non-numeric except dot and minus
+        return parseFloat(str.replace(/[^0-9\.\-]/g, '')) || 0;
+    }
+
+    function updateSelectedTotal(){
+        const select = document.getElementById('salesDateSelect');
+        const val = select ? select.value : 'all';
+        const rows = document.querySelectorAll('#transactionsTable tbody tr[data-date]');
+        let total = 0;
+        rows.forEach(r => {
+            const rowDate = r.getAttribute('data-date');
+            const amountText = r.querySelector('td:last-child').innerText;
+            const amount = parseAmount(amountText);
+            if (val === 'all' || rowDate === val){
+                r.style.display = '';
+                total += amount;
+            } else {
+                r.style.display = 'none';
+            }
+        });
+        document.getElementById('selectedTotal').innerText = '₱' + total.toFixed(2);
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+        const select = document.getElementById('salesDateSelect');
+        if (select){
+            select.addEventListener('change', updateSelectedTotal);
+            // initialize to today's selection if present, else 'all'
+            updateSelectedTotal();
+        }
+    });
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends 'POS/base.html' %}
+
+{% block title %}Inventory | JKPV Store{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Match dashboard pastel-blue theme */
+    :root{
+        --leaf-green: #7aaedc;
+        --leaf-green-hover: #5f99d4;
+        --wood-accent: #b5d4f1;
+        --soft-text: #2f435d;
+        --card-bg: #ffffff;
+        --border-soft: #dbeaf9;
+    }
+
+    .accordion-button {
+        background: rgba(255,255,255,0.9);
+        color: var(--soft-text);
+        border-radius: .5rem;
+    }
+    .accordion-button:not(.collapsed) {
+        background: var(--leaf-green);
+        color: #fff;
+    }
+    .table thead.table-dark {
+        background: linear-gradient(90deg, var(--leaf-green), var(--leaf-green-hover));
+        color: #fff;
+    }
+    .btn-warning { background: var(--wood-accent); border-color: var(--wood-accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+    <h2 class="fw-bold text-primary"><i class="fas fa-box me-2"></i>Inventory Management</h2>
+    <a href="{% url 'add_product' %}" class="btn btn-info text-white fw-bold shadow-sm">
+        <i class="fas fa-plus me-1"></i> Add Product
+    </a>
+</div>
+
+<!-- Accordion: All Items + per-category collapsible lists -->
+<div class="accordion" id="inventoryAccordion">
+
+    <!-- All Items -->
+    <div class="accordion-item mb-3">
+        <h2 class="accordion-header" id="headingAll">
+            <button class="accordion-button collapsed bg-white fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAll" aria-expanded="false" aria-controls="collapseAll">
+                <i class="fas fa-list me-2"></i> All Items
+            </button>
+        </h2>
+        <div id="collapseAll" class="accordion-collapse collapse show" aria-labelledby="headingAll" data-bs-parent="#inventoryAccordion">
+            <div class="accordion-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="ps-4">Item Name</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Stock Level</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allProductsTbody">
+                            {% for product in products %}
+                            <tr class="align-middle {% if product.is_low_stock %}table-warning{% endif %}" data-category-id="{% if product.category %}cat-{{ product.category.id }}{% else %}cat-none{% endif %}">
+                                <td class="ps-4 fw-semibold">{{ product.name }}</td>
+                                <td>{{ product.category.name|default:"-" }}</td>
+                                <td class="text-success fw-bold">₱{{ product.price|floatformat:2 }}</td>
+                                <td>
+                                    {% if product.is_low_stock %}
+                                        <span class="badge bg-danger fs-6">{{ product.stock_quantity }} (Low Stock)</span>
+                                    {% else %}
+                                        <span class="badge bg-success fs-6">{{ product.stock_quantity }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-success btn-sm fw-bold me-1" onclick="restockProduct({{ product.id }}, '{{ product.name|escapejs }}')">
+                                        <i class="fas fa-plus-circle"></i> Restock
+                                    </button>
+                                    <button type="button" class="btn btn-warning btn-sm fw-bold text-dark me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ product.id }}">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-category sections -->
+    {% for cat in categories %}
+    <div class="accordion-item mb-2" id="section-cat-{{ cat.id }}">
+        <h2 class="accordion-header" id="heading{{ cat.id }}">
+            <button class="accordion-button collapsed bg-white fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ cat.id }}" aria-expanded="false" aria-controls="collapse{{ cat.id }}">
+                <i class="fas fa-folder-open me-2"></i> {{ cat.name }}
+            </button>
+        </h2>
+        <div id="collapse{{ cat.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ cat.id }}" data-bs-parent="#inventoryAccordion">
+            <div class="accordion-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Item Name</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                                {% if product.category and product.category.id == cat.id %}
+                                <tr class="align-middle {% if product.is_low_stock %}table-warning{% endif %}">
+                                    <td class="ps-4 fw-semibold">{{ product.name }}</td>
+                                    <td class="text-success fw-bold">₱{{ product.price|floatformat:2 }}</td>
+                                    <td>
+                                        {% if product.is_low_stock %}
+                                            <span class="badge bg-danger fs-6">{{ product.stock_quantity }} (Low Stock)</span>
+                                        {% else %}
+                                            <span class="badge bg-success fs-6">{{ product.stock_quantity }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-success btn-sm fw-bold me-1" onclick="restockProduct({{ product.id }}, '{{ product.name|escapejs }}')">
+                                            <i class="fas fa-plus-circle"></i> Restock
+                                        </button>
+                                        <button type="button" class="btn btn-warning btn-sm fw-bold text-dark me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ product.id }}">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+</div>
+
+<!-- Render per-product Edit/Delete modals (kept outside the table for clarity) -->
+{% for product in products %}
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal{{ product.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold"><i class="fas fa-edit me-2"></i>Edit {{ product.name }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{% url 'edit_product' product.id %}" method="POST">
+          {% csrf_token %}
+          <div class="modal-body text-start">
+              <div class="mb-3">
+                  <label class="form-label fw-semibold">Name:</label>
+                  <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
+              </div>
+              <div class="mb-3">
+                  <label class="form-label fw-semibold">Category:</label>
+                  <input type="text" name="category_name" class="form-control" list="category-list" value="{{ product.category.name|default:'' }}" placeholder="Type or select...">
+              </div>
+              <div class="mb-3">
+                  <label class="form-label fw-semibold">Price:</label>
+                  <input type="number" step="0.01" name="price" class="form-control" value="{{ product.price }}" required>
+              </div>
+              <div class="mb-3">
+                  <label class="form-label fw-semibold">Stock quantity:</label>
+                  <input type="number" name="stock_quantity" class="form-control" value="{{ product.stock_quantity }}" required>
+              </div>
+              <div class="mb-3">
+                  <label class="form-label fw-semibold">Supplier:</label>
+                  <input type="text" name="supplier_name" class="form-control" list="supplier-list" value="{{ product.supplier.name|default:'' }}" placeholder="Type or select...">
+              </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-warning fw-bold">Save Changes</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Delete Product</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-start">
+        Are you absolutely sure you want to delete <strong>{{ product.name }}</strong>? This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <form action="{% url 'delete_product' product.id %}" method="POST">
+            {% csrf_token %}
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-danger fw-bold">Yes, Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Datalists for Modals -->
+<datalist id="category-list">
+    {% for cat in categories %}
+        <option value="{{ cat.name }}">
+    {% endfor %}
+</datalist>
+
+<datalist id="supplier-list">
+    {% for sup in suppliers %}
+        <option value="{{ sup.name }}">
+    {% endfor %}
+</datalist>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function restockProduct(productId, productName) {
+    const quantity = prompt(`Enter quantity to add to stock for "${productName}":`);
+    
+    if (quantity === null || quantity.trim() === "" || isNaN(quantity) || parseInt(quantity) <= 0) {
+        return; 
+    }
+
+    fetch(`/inventory/restock/${productId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}' 
+        },
+        body: JSON.stringify({ quantity: parseInt(quantity) })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            location.reload(); 
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to restock product.');
+    });
+}
+
+// Inventory category selector behavior: open the accordion panel and compute total
+(function(){
+    function parseAmount(str){
+        if (!str) return 0;
+        return parseFloat(str.toString().replace(/[^0-9\.\-]/g, '')) || 0;
+    }
+
+    function updateCategoryTotal(categoryId){
+        let rows;
+        if (categoryId === 'all'){
+            rows = document.querySelectorAll('#allProductsTbody tr');
+        } else {
+            rows = document.querySelectorAll(`#section-cat-${categoryId} tbody tr`);
+        }
+        let total = 0;
+        rows.forEach(r => {
+            const cell = r.querySelector('td.text-success.fw-bold');
+            if (cell) total += parseAmount(cell.innerText);
+        });
+        document.getElementById('inventorySelectedTotal').innerText = '₱' + total.toFixed(2);
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+        const select = document.getElementById('inventoryCategorySelect');
+        if (!select) return;
+
+        select.addEventListener('change', function(){
+            const val = this.value;
+            if (val === 'all'){
+                // open All Items
+                const bsAll = bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapseAll'));
+                bsAll.show();
+            } else {
+                // close All and open target
+                const bsAll = bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapseAll'));
+                bsAll.hide();
+                const targetId = val.replace('cat-','');
+                const panel = document.getElementById('collapse' + targetId);
+                if (panel){
+                    const bsPanel = bootstrap.Collapse.getOrCreateInstance(panel);
+                    bsPanel.show();
+                    // scroll into view a bit
+                    panel.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }
+            }
+
+            // compute total for selection
+            if (val === 'all') updateCategoryTotal('all');
+            else updateCategoryTotal(val.replace('cat-',''));
+        });
+
+        // initialize total for All
+        updateCategoryTotal('all');
+    });
+})();
+</script>
+{% endblock %}
